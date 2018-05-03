@@ -35,6 +35,7 @@ stored_patterns = 5  # number of patterns that are stored in the network before 
 number_of_changed_values = 4750
 # the number of weigths that are changed is 2*number_of_changed_values
 # (The factor of 2 is because of the symmetry of the weight matrix)
+eval_epochs = 100  # how many steps are run before dice coefficient computed
 
 # whether to run experiments with different learning rules
 RUN_FL = False  # similar to FLT, I prefer the local version
@@ -96,22 +97,20 @@ for trial in range(0, TRIALS):
                                  patterns[:, stored_patterns+1]) - wF)
         perturbation_vector = z
         wF = wF + perturbation_vector
-        # summed_perturbed0 += np.mean(np.abs(perturbation_vector))
         netFisher.set_weights(wF)
 
+        # checking stability of patterns after eval_epochs iterations
         overall_error = np.zeros(NTRAIN)
         for i in range(int(stored_patterns)):
             netFisher.present_pattern(original_patterns[:, i])
-            netFisher.step(100)
+            netFisher.step(eval_epochs)
             output = netFisher.s
-            error[epoch] = np.sum((original_patterns[:, i]-output)**2)
             error[epoch] = dice_coefficient(original_patterns[:, i], output)
             overall_error[epoch] += error[epoch]
 
         netFisher.present_pattern(original_patterns[:, stored_patterns+1])
-        netFisher.step(100)
+        netFisher.step(eval_epochs)
         output = netFisher.s
-        error[epoch] = np.sum((original_patterns[:, stored_patterns+1]-output)**2)
         error[epoch] = dice_coefficient(original_patterns[:, stored_patterns+1], output)
 
         complete_error_mean[trial, epoch] = overall_error[epoch]/stored_patterns
@@ -139,13 +138,6 @@ for trial in range(0, TRIALS):
             weight_perturbation_v2 = from_triangular(IMAGE_SIZE**2, weight_perturbation_tri, 1)
             copied_curvature_v2 = from_triangular(IMAGE_SIZE**2, copied_curvature_tri, 1000)
 
-#             for i in range(number_of_changed_values):
-#                 y_ind_current, x_ind_current = np.unravel_index(copied_curvature.argmin(), copied_curvature.shape)
-#                 weight_perturbation[y_ind_current, x_ind_current] = 1
-#                 weight_perturbation[x_ind_current, y_ind_current] = 1
-#                 copied_curvature[y_ind_current, x_ind_current] = 2000
-#                 copied_curvature[x_ind_current, y_ind_current] = 2000
-#             print(np.sum(np.abs(weight_perturbation - weight_perturbation_v2)))
             weight_perturbation = weight_perturbation_v2
             copied_curvature = copied_curvature_v2
 
@@ -158,22 +150,19 @@ for trial in range(0, TRIALS):
             mean_w1_considered2 += np.mean(np.abs(xyz))
             perturbation_vector = weight_perturbation * z
             wF = wF + perturbation_vector
-            # summed_perturbed2 += np.mean(np.abs(perturbation_vector))
             netFisher.set_weights(wF)
 
             overall_errorFL = np.zeros(NTRAIN)
             for i in range(int(stored_patterns)):
                 netFisher.present_pattern(original_patterns[:, i])
-                netFisher.step(100)
+                netFisher.step(eval_epochs)
                 output = netFisher.s
-                error[epoch] = np.sum((original_patterns[:, i]-output)**2)
                 error[epoch] = dice_coefficient(original_patterns[:, i], output)
                 overall_errorFL[epoch] += error[epoch]
 
             netFisher.present_pattern(original_patterns[:, stored_patterns+1])
-            netFisher.step(100)
+            netFisher.step(eval_epochs)
             output = netFisher.s
-            error[epoch] = np.sum((original_patterns[:, stored_patterns+1]-output)**2)
             error[epoch] = dice_coefficient(original_patterns[:, stored_patterns+1], output)
 
             complete_error_meanFL[trial, epoch] = overall_errorFL[epoch]/stored_patterns
@@ -212,28 +201,25 @@ for trial in range(0, TRIALS):
             mean_w1_considered2 += np.mean(np.abs(xyz))
             perturbation_vector = weight_perturbation * z
             wF = wF + perturbation_vector
-            # summed_perturbed2 += np.mean(np.abs(perturbation_vector))
             netFisher.set_weights(wF)
 
             overall_errorFLT = np.zeros(NTRAIN)
             for i in range(int(stored_patterns)):
                 netFisher.present_pattern(original_patterns[:, i])
-                netFisher.step(100)
+                netFisher.step(eval_epochs)
                 output = netFisher.s
-                error[epoch] = np.sum((original_patterns[:, i]-output)**2)
                 error[epoch] = dice_coefficient(original_patterns[:, i], output)
                 overall_errorFLT[epoch] += error[epoch]
 
             netFisher.present_pattern(original_patterns[:, stored_patterns+1])
-            netFisher.step(100)
+            netFisher.step(eval_epochs)
             output = netFisher.s
-            error[epoch] = np.sum((original_patterns[:, stored_patterns+1]-output)**2)
             error[epoch] = dice_coefficient(original_patterns[:, stored_patterns+1], output)
 
             complete_error_meanFLT[trial, epoch] = overall_errorFLT[epoch]/stored_patterns
             complete_error_new_patternFLT[trial, epoch] = error[epoch]
 
-            #if epoch == (NTRAIN-1):
+            # if epoch == (NTRAIN-1):
             #    x = np.abs(netFisher.w).flatten()
             #    netFisher.curvature = np.abs(w1)
             #    y = netFisher.curvature.flatten()
@@ -251,7 +237,6 @@ for trial in range(0, TRIALS):
     wF = w1
     for epoch in range(NTRAIN):
         z = ETA * (np.outer(patterns[:, stored_patterns+1], patterns[:, stored_patterns+1]) - wF)
-        # netFisher.calculate_fisher_information(patterns[:,0:stored_patterns+1])
         netFisher.calculate_fisher_information(patterns[:, 0:stored_patterns])
         weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
         np.fill_diagonal(weight_perturbation, 1)
@@ -266,14 +251,6 @@ for trial in range(0, TRIALS):
         weight_perturbation_v2 = from_triangular(IMAGE_SIZE**2, weight_perturbation_tri, 1)
         copied_curvature_v2 = from_triangular(IMAGE_SIZE**2, copied_curvature_tri, 1000)
 
-#         for i in range(number_of_changed_values):
-#             y_ind_current, x_ind_current = np.unravel_index(copied_curvature.argmin(), copied_curvature.shape)
-#             weight_perturbation[y_ind_current, x_ind_current] = 1
-#             weight_perturbation[x_ind_current, y_ind_current] = 1
-#             copied_curvature[y_ind_current, x_ind_current] = 2000
-#             copied_curvature[x_ind_current, y_ind_current] = 2000
-
-#         print(np.sum(np.abs(weight_perturbation - weight_perturbation_v2)))
         weight_perturbation = weight_perturbation_v2
         copied_curvature = copied_curvature_v2
 
@@ -288,16 +265,14 @@ for trial in range(0, TRIALS):
         overall_errorFI = np.zeros(NTRAIN)
         for i in range(int(stored_patterns)):
             netFisher.present_pattern(original_patterns[:, i])
-            netFisher.step(100)
+            netFisher.step(eval_epochs)
             output = netFisher.s
-            error[epoch] = np.sum((original_patterns[:, i]-output)**2)
             error[epoch] = dice_coefficient(original_patterns[:, i], output)
             overall_errorFI[epoch] += error[epoch]
 
         netFisher.present_pattern(original_patterns[:, stored_patterns+1])
-        netFisher.step(100)
+        netFisher.step(eval_epochs)
         output = netFisher.s
-        error[epoch] = np.sum((original_patterns[:, stored_patterns+1]-output)**2)
         error[epoch] = dice_coefficient(original_patterns[:, stored_patterns+1], output)
 
         complete_error_meanFI[trial, epoch] = overall_errorFI[epoch]/stored_patterns
@@ -319,28 +294,20 @@ for trial in range(0, TRIALS):
         wF = w1
         for epoch in range(NTRAIN):
             z = ETA * (np.outer(patterns[:, stored_patterns+1], patterns[:, stored_patterns+1]) - wF)
-            # netFisher.calculate_fisher_information(patterns[:,0:stored_patterns+1])
             netFisher.calculate_fisher_information_hebbian(patterns[:, 0:stored_patterns])
             weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
             np.fill_diagonal(weight_perturbation, 1)
             copied_curvature = copy.deepcopy(netFisher.curvature)
             np.fill_diagonal(copied_curvature, 1000)  # setting it to a very high value such that the diagonal is not touched
 
-            copied_curvature_tri = to_triangular(copied_curvature)  # Martino
-            weight_perturbation_tri = to_triangular(weight_perturbation)  # Martino
+            copied_curvature_tri = to_triangular(copied_curvature)
+            weight_perturbation_tri = to_triangular(weight_perturbation)
             small_idx = np.argsort(copied_curvature_tri, axis=None)
             weight_perturbation_tri[small_idx[:number_of_changed_values]] = 1
             copied_curvature_tri[small_idx[:number_of_changed_values]] = 2000
             weight_perturbation_v2 = from_triangular(IMAGE_SIZE**2, weight_perturbation_tri, 1)
             copied_curvature_v2 = from_triangular(IMAGE_SIZE**2, copied_curvature_tri, 1000)
 
-#             for i in range(number_of_changed_values):
-#                 y_ind_current, x_ind_current = np.unravel_index(copied_curvature.argmin(), copied_curvature.shape)
-#                 weight_perturbation[y_ind_current, x_ind_current] = 1
-#                 weight_perturbation[x_ind_current, y_ind_current] = 1
-#                 copied_curvature[y_ind_current, x_ind_current] = 2000
-#                 copied_curvature[x_ind_current, y_ind_current] = 2000
-#             print(np.sum(np.abs(weight_perturbation - weight_perturbation_v2)))
             weight_perturbation = weight_perturbation_v2
             copied_curvature = copied_curvature_v2
 
@@ -349,22 +316,19 @@ for trial in range(0, TRIALS):
             mean_w1_considered2 += np.mean(np.abs(xyz))
             perturbation_vector = weight_perturbation * z
             wF = wF + perturbation_vector
-            # summed_perturbed2 += np.mean(np.abs(perturbation_vector))
             netFisher.set_weights(wF)
 
             overall_errorFIH = np.zeros(NTRAIN)
             for i in range(int(stored_patterns)):
                 netFisher.present_pattern(original_patterns[:, i])
-                netFisher.step(100)
+                netFisher.step(eval_epochs)
                 output = netFisher.s
-                error[epoch] = np.sum((original_patterns[:, i]-output)**2)
                 error[epoch] = dice_coefficient(original_patterns[:, i], output)
                 overall_errorFIH[epoch] += error[epoch]
 
             netFisher.present_pattern(original_patterns[:, stored_patterns+1])
-            netFisher.step(100)
+            netFisher.step(eval_epochs)
             output = netFisher.s
-            error[epoch] = np.sum((original_patterns[:, stored_patterns+1]-output)**2)
             error[epoch] = dice_coefficient(original_patterns[:, stored_patterns+1], output)
 
             complete_error_meanFIH[trial, epoch] = overall_errorFIH[epoch]/stored_patterns
