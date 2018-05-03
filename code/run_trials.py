@@ -26,7 +26,7 @@ NTRAIN = 2000  # number of epochs
 NUM_PATTERNS = 1000  # number of patterns created
 SPARSITY = 0.1  # number of zeros: e.g. SPARSITY = 0.1 means 10% ones and 90% zeros
 IMAGE_SIZE = 10  # the size of our created pattern will be (IMAGE_SIZE x IMAGE_SIZE)
-eval_f = 1  # evaluation frequency (every eval_f-th iteration) NOTE: currently not implemented
+eval_f = 1  # evaluation frequency (every eval_f-th iteration)
 TRIALS = 300  # number of trials over which the results will be averaged in order to get smooth results
 less_changed_weight_value = 0.00
 # the learning rate of weights which are considered important have a
@@ -53,19 +53,6 @@ complete_error_new_patternFI = -np.ones(shape=(TRIALS, NTRAIN))
 complete_error_meanFI = -np.ones(shape=(TRIALS, NTRAIN))
 complete_error_new_patternFIH = -np.ones(shape=(TRIALS, NTRAIN))
 complete_error_meanFIH = -np.ones(shape=(TRIALS, NTRAIN))
-
-error = -np.ones(NTRAIN)
-overall_error = np.zeros(NTRAIN)
-overall_errorFL = np.zeros(NTRAIN)
-overall_errorFLT = np.zeros(NTRAIN)
-overall_errorFI = np.zeros(NTRAIN)
-
-# summed_perturbed0 = 0
-# summed_perturbed1 = 0
-# summed_perturbed2 = 0
-
-mean_w1_considered1 = 0
-mean_w1_considered2 = 0
 
 
 print('**Started Learning**')
@@ -100,21 +87,20 @@ for trial in range(0, TRIALS):
         netFisher.set_weights(wF)
 
         # checking stability of patterns after eval_epochs iterations
-        overall_error = np.zeros(NTRAIN)
+        overall_error = 0
         for i in range(int(stored_patterns)):
             netFisher.present_pattern(original_patterns[:, i])
             netFisher.step(eval_epochs)
             output = netFisher.s
-            error[epoch] = dice_coefficient(original_patterns[:, i], output)
-            overall_error[epoch] += error[epoch]
+            overall_error += dice_coefficient(original_patterns[:, i], output)
 
         netFisher.present_pattern(original_patterns[:, stored_patterns+1])
         netFisher.step(eval_epochs)
         output = netFisher.s
-        error[epoch] = dice_coefficient(original_patterns[:, stored_patterns+1], output)
+        error = dice_coefficient(original_patterns[:, stored_patterns+1], output)
 
-        complete_error_mean[trial, epoch] = overall_error[epoch]/stored_patterns
-        complete_error_new_pattern[trial, epoch] = error[epoch]
+        complete_error_mean[trial, epoch] = overall_error/stored_patterns
+        complete_error_new_pattern[trial, epoch] = error
 
     wH_final = netFisher.w
 
@@ -147,36 +133,25 @@ for trial in range(0, TRIALS):
 
             xyz = np.zeros(np.shape(w1))
             xyz[weight_perturbation == 1] = w1[weight_perturbation == 1]
-            mean_w1_considered2 += np.mean(np.abs(xyz))
             perturbation_vector = weight_perturbation * z
             wF = wF + perturbation_vector
             netFisher.set_weights(wF)
 
-            overall_errorFL = np.zeros(NTRAIN)
+            # checking stability of patterns after eval_epochs iterations
+            overall_error = 0
             for i in range(int(stored_patterns)):
                 netFisher.present_pattern(original_patterns[:, i])
                 netFisher.step(eval_epochs)
                 output = netFisher.s
-                error[epoch] = dice_coefficient(original_patterns[:, i], output)
-                overall_errorFL[epoch] += error[epoch]
+                overall_error += dice_coefficient(original_patterns[:, i], output)
 
             netFisher.present_pattern(original_patterns[:, stored_patterns+1])
             netFisher.step(eval_epochs)
             output = netFisher.s
-            error[epoch] = dice_coefficient(original_patterns[:, stored_patterns+1], output)
+            error = dice_coefficient(original_patterns[:, stored_patterns+1], output)
 
-            complete_error_meanFL[trial, epoch] = overall_errorFL[epoch]/stored_patterns
-            complete_error_new_patternFL[trial, epoch] = error[epoch]
-
-            # if epoch == 0:
-            #     x = np.abs(netFisher.w).flatten()
-            #     netFisher.curvature = np.abs(w1)
-            #     y = netFisher.curvature.flatten()
-            #     plt.figure(figsize=(5,5))
-            #     plt.plot(x,y, 'x')
-            #     plt.xlabel('abs(w)')
-            #     plt.ylabel('FisherInf')
-            #     plt.show()
+            complete_error_meanFL[trial, epoch] = overall_error/stored_patterns
+            complete_error_new_patternFL[trial, epoch] = error
 
         wFL_final = netFisher.w
 
@@ -198,36 +173,25 @@ for trial in range(0, TRIALS):
 
             xyz = np.zeros(np.shape(w1))
             xyz[weight_perturbation == 1] = w1[weight_perturbation == 1]
-            mean_w1_considered2 += np.mean(np.abs(xyz))
             perturbation_vector = weight_perturbation * z
             wF = wF + perturbation_vector
             netFisher.set_weights(wF)
 
-            overall_errorFLT = np.zeros(NTRAIN)
+            # checking stability of patterns after eval_epochs iterations
+            overall_error = 0
             for i in range(int(stored_patterns)):
                 netFisher.present_pattern(original_patterns[:, i])
                 netFisher.step(eval_epochs)
                 output = netFisher.s
-                error[epoch] = dice_coefficient(original_patterns[:, i], output)
-                overall_errorFLT[epoch] += error[epoch]
+                overall_error += dice_coefficient(original_patterns[:, i], output)
 
             netFisher.present_pattern(original_patterns[:, stored_patterns+1])
             netFisher.step(eval_epochs)
             output = netFisher.s
-            error[epoch] = dice_coefficient(original_patterns[:, stored_patterns+1], output)
+            error = dice_coefficient(original_patterns[:, stored_patterns+1], output)
 
-            complete_error_meanFLT[trial, epoch] = overall_errorFLT[epoch]/stored_patterns
-            complete_error_new_patternFLT[trial, epoch] = error[epoch]
-
-            # if epoch == (NTRAIN-1):
-            #    x = np.abs(netFisher.w).flatten()
-            #    netFisher.curvature = np.abs(w1)
-            #    y = netFisher.curvature.flatten()
-            #    plt.figure(figsize=(5,5))
-            #    plt.plot(x,y, 'x')
-            #    plt.xlabel('abs(w)')
-            #    plt.ylabel('FisherInf')
-            #    plt.show()
+            complete_error_meanFLT[trial, epoch] = overall_error/stored_patterns
+            complete_error_new_patternFLT[trial, epoch] = error
 
         wFLT_final = netFisher.w
 
@@ -256,37 +220,26 @@ for trial in range(0, TRIALS):
 
         xyz = np.zeros(np.shape(w1))
         xyz[weight_perturbation == 1] = w1[weight_perturbation == 1]
-        mean_w1_considered2 += np.mean(np.abs(xyz))
         perturbation_vector = weight_perturbation * z
         wF = wF + perturbation_vector
-        # summed_perturbed2 += np.mean(np.abs(perturbation_vector))
         netFisher.set_weights(wF)
 
-        overall_errorFI = np.zeros(NTRAIN)
+        # checking stability of patterns after eval_epochs iterations
+        overall_error = 0
         for i in range(int(stored_patterns)):
             netFisher.present_pattern(original_patterns[:, i])
             netFisher.step(eval_epochs)
             output = netFisher.s
-            error[epoch] = dice_coefficient(original_patterns[:, i], output)
-            overall_errorFI[epoch] += error[epoch]
+            overall_error += dice_coefficient(original_patterns[:, i], output)
 
         netFisher.present_pattern(original_patterns[:, stored_patterns+1])
         netFisher.step(eval_epochs)
         output = netFisher.s
-        error[epoch] = dice_coefficient(original_patterns[:, stored_patterns+1], output)
+        error = dice_coefficient(original_patterns[:, stored_patterns+1], output)
 
-        complete_error_meanFI[trial, epoch] = overall_errorFI[epoch]/stored_patterns
-        complete_error_new_patternFI[trial, epoch] = error[epoch]
+        complete_error_meanFI[trial, epoch] = overall_error/stored_patterns
+        complete_error_new_patternFI[trial, epoch] = error
 
-        # if epoch == (NTRAIN-1):
-        #    x = np.abs(netFisher.w).flatten()
-        #    netFisher.calculate_fisher_information(patterns[:,0:stored_patterns+1])
-        #    y = netFisher.curvature.flatten()
-        #    plt.figure(figsize=(5,5))
-        #    plt.plot(x,y, 'x')
-        #    plt.xlabel('abs(w)')
-        #    plt.ylabel('FisherInf')
-        #    plt.show()
 
 # ======== FIH ========= #
 # Now disturbing the weights using hebbian way for fisher information
@@ -313,36 +266,25 @@ for trial in range(0, TRIALS):
 
             xyz = np.zeros(np.shape(w1))
             xyz[weight_perturbation == 1] = w1[weight_perturbation == 1]
-            mean_w1_considered2 += np.mean(np.abs(xyz))
             perturbation_vector = weight_perturbation * z
             wF = wF + perturbation_vector
             netFisher.set_weights(wF)
 
-            overall_errorFIH = np.zeros(NTRAIN)
+            # checking stability of patterns after eval_epochs iterations
+            overall_error = 0
             for i in range(int(stored_patterns)):
                 netFisher.present_pattern(original_patterns[:, i])
                 netFisher.step(eval_epochs)
                 output = netFisher.s
-                error[epoch] = dice_coefficient(original_patterns[:, i], output)
-                overall_errorFIH[epoch] += error[epoch]
+                overall_error += dice_coefficient(original_patterns[:, i], output)
 
             netFisher.present_pattern(original_patterns[:, stored_patterns+1])
             netFisher.step(eval_epochs)
             output = netFisher.s
-            error[epoch] = dice_coefficient(original_patterns[:, stored_patterns+1], output)
+            error = dice_coefficient(original_patterns[:, stored_patterns+1], output)
 
-            complete_error_meanFIH[trial, epoch] = overall_errorFIH[epoch]/stored_patterns
-            complete_error_new_patternFIH[trial, epoch] = error[epoch]
-
-            # if epoch == (NTRAIN-1):
-            #    x = np.abs(netFisher.w).flatten()
-            #    netFisher.calculate_fisher_information(patterns[:,0:stored_patterns+1])
-            #    y = netFisher.curvature.flatten()
-            #    plt.figure(figsize=(5,5))
-            #    plt.plot(x,y, 'x')
-            #    plt.xlabel('abs(w)')
-            #    plt.ylabel('FisherInf')
-            #    plt.show()
+            complete_error_meanFIH[trial, epoch] = overall_error/stored_patterns
+            complete_error_new_patternFIH[trial, epoch] = error
 
         wFIH_final = netFisher.w
 
