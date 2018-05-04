@@ -34,16 +34,16 @@ def evaluate_stability(network, patterns):
 
 ETA = 0.001  # learning rate
 NTRAIN = 2000  # number of epochs
-SPARSITY = 0.1  # number of zeros: e.g. SPARSITY = 0.1 means 10% ones and 90% zeros
-IMAGE_SIZE = 10  # the size of our created pattern will be (IMAGE_SIZE x IMAGE_SIZE)
+SPARSITY = 0.1  # number of zeros: SPARSITY = 0.1 means 10% ones and 90% zeros
+IMAGE_SIZE = 10  # the size of our pattern will be (IMAGE_SIZE x IMAGE_SIZE)
 eval_f = 1  # evaluation frequency (every eval_f-th iteration)
 TRIALS = 3  # number of trials over which the results will be averaged
 less_changed_weight_value = 0.00
 # the learning rate of weights which are considered important have a
 # learning rate of ETA * less_changed_weight_value
-n_stored_patterns = 5  # number of patterns that are stored in the network before learning
+n_stored_patterns = 5  # number of patterns that are stored before learning
 n_new_patterns = 5  # number of patterns to be learned
-n_tot_patterns = n_stored_patterns + n_new_patterns  # number of patterns created
+n_tot_patterns = n_stored_patterns + n_new_patterns  # n of patterns created
 number_of_changed_values = 4750
 # the number of weigths that are changed is 2*number_of_changed_values
 # (The factor of 2 is because of the symmetry of the weight matrix)
@@ -81,17 +81,19 @@ for trial in range(0, TRIALS):
     solver = solverClass()
     patterns = solver.create_patterns(SPARSITY, IMAGE_SIZE, n_tot_patterns)
     netFisher = hopfieldNet(IMAGE_SIZE, ETA, SPARSITY)
-    p = np.zeros(shape=(IMAGE_SIZE**2, IMAGE_SIZE**2))
     original_patterns = copy.deepcopy(patterns)
     patterns = patterns - SPARSITY
 
+    # learning patterns
+    p = np.zeros(shape=(IMAGE_SIZE**2, IMAGE_SIZE**2))
     for i in range(n_stored_patterns):
         p += np.outer(patterns[:, i], patterns[:, i])
         netFisher.append_pattern(patterns[:, i], NTRAIN)
-    w1 = p/70  # TODO what is this?
+    w1 = p/70  # TODO why 70?
 
 
 # ========== H ========== #
+# Traditional learning rule
     wF = w1
     for epoch in range(NTRAIN):
         diminish_lr = 2 * number_of_changed_values / (IMAGE_SIZE**2)**2
@@ -112,8 +114,8 @@ for trial in range(0, TRIALS):
     wH_final = netFisher.w
 
 # ========= FL ========= #
+# Now perturbing the weights using the value of the weight (quantile)
     if RUN_FL:
-        # Now disturbing the weights
         wF = w1
         for epoch in range(NTRAIN):
             z = ETA * (np.outer(patterns[:, n_stored_patterns+1],
@@ -147,7 +149,7 @@ for trial in range(0, TRIALS):
         wFL_final = netFisher.w
 
 # ======== FLT ========= #
-# Now disturbing the weights
+# Now perturbing the weights using the value of the weight (threshold)
     if RUN_FLT:
         wF = w1
         for epoch in range(NTRAIN):
@@ -180,7 +182,7 @@ for trial in range(0, TRIALS):
 
 
 # ======== FI ======== #
-# Now disturbing the weights
+# Weights perturbed using Fisher Information
     wF = w1
     for epoch in range(NTRAIN):
         z = ETA * (np.outer(patterns[:, n_stored_patterns+1],
@@ -209,7 +211,7 @@ for trial in range(0, TRIALS):
 
 
 # ======== FIH ========= #
-# Now disturbing the weights using hebbian way for fisher information
+# Now perturbing the weights using Hebbian way for Fisher information
     if RUN_FIH:
         wF = w1
         for epoch in range(NTRAIN):
@@ -240,7 +242,8 @@ for trial in range(0, TRIALS):
         # wFIH_final = netFisher.w
 
 
-filename = "../prova_Complete_errors_stored{}_size{}.npz".format(n_stored_patterns, IMAGE_SIZE)
+filename = "../prova_Complete_errors_stored{}_size{}.npz".format(
+    n_stored_patterns, IMAGE_SIZE)
 np.savez(filename, **Errors)
 
 print('**Finished**')
