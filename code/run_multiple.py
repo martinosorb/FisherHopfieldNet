@@ -22,29 +22,31 @@ def dice_coefficient(p1, p2):
     return p/n
 
 
-def evaluate_stability(network, patterns):
-    overall_error = 0
-    for p in patterns:
+def evaluate_stability(network, patterns, average=True):
+    error = np.empty(len(patterns))
+    for i, p in enumerate(patterns):
         network.present_pattern(p)
         network.step(eval_epochs)
         output = netFisher.s
-        overall_error += dice_coefficient(p, output)
-    return overall_error/len(patterns)
+        error[i] = dice_coefficient(p, output)
+    if average:
+        return np.mean(error)
+    return error
 
 
 ETA = 0.001  # learning rate
-NTRAIN = 2000  # number of epochs
-SPARSITY = 0.5  # number of zeros: SPARSITY = 0.1 means 10% ones and 90% zeros
+SPARSITY = 0.1  # number of zeros: SPARSITY = 0.1 means 10% ones and 90% zeros
 IMAGE_SIZE = 10  # the size of our pattern will be (IMAGE_SIZE x IMAGE_SIZE)
 eval_f = 1  # evaluation frequency (every eval_f-th iteration)
-TRIALS = 100  # number of trials over which the results will be averaged
+TRIALS = 200  # number of trials over which the results will be averaged
 less_changed_weight_value = 0.00
 # the learning rate of weights which are considered important have a
 # learning rate of ETA * less_changed_weight_value
-n_stored_patterns = 5  # number of patterns that are stored before learning
-n_new_patterns = 1  # number of patterns to be learned
-assert n_new_patterns == 1, "Not implemented"
+epochs_patterns_presented = 30
+n_stored_patterns = 5
+n_new_patterns = 10
 n_tot_patterns = n_stored_patterns + n_new_patterns  # n of patterns created
+NTRAIN = epochs_patterns_presented * n_new_patterns  # number of epochs
 number_of_changed_values = 4750
 # the number of weigths that are changed is 2*number_of_changed_values
 # (The factor of 2 is because of the symmetry of the weight matrix)
@@ -57,19 +59,14 @@ RUN_FLT = True
 
 # Define variables
 Errors = {}
-Errors['trad_80_N'] = -np.ones(shape=(TRIALS, NTRAIN))
-Errors['trad_80_O'] = -np.ones(shape=(TRIALS, NTRAIN))
+Errors['trad_80_N'] = -np.ones(shape=(TRIALS, NTRAIN, n_tot_patterns))
 if RUN_FL:
-    Errors['FL_N'] = -np.ones(shape=(TRIALS, NTRAIN))
-    Errors['FL_O'] = -np.ones(shape=(TRIALS, NTRAIN))
+    Errors['FL_N'] = -np.ones(shape=(TRIALS, NTRAIN, n_tot_patterns))
 if RUN_FLT:
-    Errors['FLT_N'] = -np.ones(shape=(TRIALS, NTRAIN))
-    Errors['FLT_O'] = -np.ones(shape=(TRIALS, NTRAIN))
-Errors['FI_N'] = -np.ones(shape=(TRIALS, NTRAIN))
-Errors['FI_O'] = -np.ones(shape=(TRIALS, NTRAIN))
+    Errors['FLT_N'] = -np.ones(shape=(TRIALS, NTRAIN, n_tot_patterns))
+Errors['FI_N'] = -np.ones(shape=(TRIALS, NTRAIN, n_tot_patterns))
 if RUN_FIH:
-    Errors['FIH_N'] = -np.ones(shape=(TRIALS, NTRAIN))
-    Errors['FIH_O'] = -np.ones(shape=(TRIALS, NTRAIN))
+    Errors['FIH_N'] = -np.ones(shape=(TRIALS, NTRAIN, n_tot_patterns))
 
 
 print('**Started Learning**')
@@ -86,20 +83,22 @@ for trial in range(0, TRIALS):
     patterns = patterns - SPARSITY
 
     # learning patterns
-    p = np.zeros(shape=(IMAGE_SIZE**2, IMAGE_SIZE**2))
+    p = np.random.random((IMAGE_SIZE**2, IMAGE_SIZE**2))
     for i in range(n_stored_patterns):
         p += np.outer(patterns[:, i], patterns[:, i])
         netFisher.append_pattern(patterns[:, i], NTRAIN)
-    w1 = p/70  # TODO why 70?
+    w1 = p/70
 
 
 # ========== H ========== #
 # Traditional learning rule
     wF = w1
     for epoch in range(NTRAIN):
+        id_pattern_taught = n_stored_patterns+epoch//epochs_patterns_presented
+        pattern_taught = patterns[:, id_pattern_taught]
+
         diminish_lr = 2 * number_of_changed_values / (IMAGE_SIZE**2)**2
-        z = diminish_lr * ETA * (np.outer(patterns[:, n_stored_patterns],
-                                 patterns[:, n_stored_patterns]) - wF)
+        z = diminish_lr * ETA * (np.outer(pattern_taught, pattern_taught) - wF)
 
         # training
         perturbation_vector = z
@@ -107,10 +106,8 @@ for trial in range(0, TRIALS):
         netFisher.set_weights(wF)
 
         # checking stability of patterns after eval_epochs iterations
-        Errors['trad_80_O'][trial, epoch] = evaluate_stability(  # old patterns
-            netFisher, original_patterns.T[:n_stored_patterns])
-        Errors['trad_80_N'][trial, epoch] = evaluate_stability(  # new pattern
-            netFisher, [original_patterns.T[n_stored_patterns]])
+        Errors['trad_80_N'][trial, epoch] = evaluate_stability(  # old patterns
+            netFisher, original_patterns.T[:n_tot_patterns], average=False)
 
     wH_final = netFisher.w
 
@@ -119,8 +116,10 @@ for trial in range(0, TRIALS):
     if RUN_FL:
         wF = w1
         for epoch in range(NTRAIN):
-            z = ETA * (np.outer(patterns[:, n_stored_patterns],
-                                patterns[:, n_stored_patterns]) - wF)
+            id_pattern_taught = n_stored_patterns+epoch//epochs_patterns_presented
+            pattern_taught = patterns[:, id_pattern_taught]
+
+            z = ETA * (np.outer(pattern_taught, pattern_taught) - wF)
             netFisher.curvature = np.abs(w1)  # not an actual curvature
             weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
 
@@ -142,10 +141,8 @@ for trial in range(0, TRIALS):
             netFisher.set_weights(wF)
 
             # checking stability of patterns after eval_epochs iterations
-            Errors['FL_O'][trial, epoch] = evaluate_stability(  # old patterns
-                netFisher, original_patterns.T[:n_stored_patterns])
-            Errors['FL_N'][trial, epoch] = evaluate_stability(  # new pattern
-                netFisher, [original_patterns.T[n_stored_patterns]])
+            Errors['FL_N'][trial, epoch] = evaluate_stability(  # old patterns
+                netFisher, original_patterns.T[:n_tot_patterns], average=False)
 
         wFL_final = netFisher.w
 
@@ -154,8 +151,10 @@ for trial in range(0, TRIALS):
     if RUN_FLT:
         wF = w1
         for epoch in range(NTRAIN):
-            z = ETA * (np.outer(patterns[:, n_stored_patterns],
-                                patterns[:, n_stored_patterns]) - wF)
+            id_pattern_taught = n_stored_patterns+epoch//epochs_patterns_presented
+            pattern_taught = patterns[:, id_pattern_taught]
+
+            z = ETA * (np.outer(pattern_taught, pattern_taught) - wF)
             netFisher.curvature = np.abs(w1)
             weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
             np.fill_diagonal(weight_perturbation, 1)
@@ -174,10 +173,8 @@ for trial in range(0, TRIALS):
             netFisher.set_weights(wF)
 
             # checking stability of patterns after eval_epochs iterations
-            Errors['FLT_O'][trial, epoch] = evaluate_stability(  # old patterns
-                netFisher, original_patterns.T[:n_stored_patterns])
-            Errors['FLT_N'][trial, epoch] = evaluate_stability(  # new pattern
-                netFisher, [original_patterns.T[n_stored_patterns]])
+            Errors['FLT_N'][trial, epoch] = evaluate_stability(  # old patterns
+                netFisher, original_patterns.T[:n_tot_patterns], average=False)
 
         # wFLT_final = netFisher.w
 
@@ -186,9 +183,13 @@ for trial in range(0, TRIALS):
 # Weights perturbed using Fisher Information
     wF = w1
     for epoch in range(NTRAIN):
-        z = ETA * (np.outer(patterns[:, n_stored_patterns],
-                            patterns[:, n_stored_patterns]) - wF)
-        netFisher.calculate_fisher_information(patterns[:, 0:n_stored_patterns])
+        id_pattern_taught = n_stored_patterns+epoch//epochs_patterns_presented
+        pattern_taught = patterns[:, id_pattern_taught]
+
+        z = ETA * (np.outer(pattern_taught, pattern_taught) - wF)
+
+        netFisher.calculate_fisher_information(  # TODO review
+            patterns[:, :id_pattern_taught])
         weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
 
         copied_curvature_tri = to_triangular(netFisher.curvature)
@@ -205,10 +206,8 @@ for trial in range(0, TRIALS):
         netFisher.set_weights(wF)
 
         # checking stability of patterns after eval_epochs iterations
-        Errors['FI_O'][trial, epoch] = evaluate_stability(  # old patterns
-            netFisher, original_patterns.T[:n_stored_patterns])
-        Errors['FI_N'][trial, epoch] = evaluate_stability(  # new pattern
-            netFisher, [original_patterns.T[n_stored_patterns]])
+        Errors['FI_N'][trial, epoch] = evaluate_stability(  # old patterns
+            netFisher, original_patterns.T[:n_tot_patterns], average=False)
 
 
 # ======== FIH ========= #
@@ -216,9 +215,13 @@ for trial in range(0, TRIALS):
     if RUN_FIH:
         wF = w1
         for epoch in range(NTRAIN):
-            z = ETA * (np.outer(patterns[:, n_stored_patterns],
-                                patterns[:, n_stored_patterns]) - wF)
-            netFisher.calculate_fisher_information_hebbian(patterns[:, 0:n_stored_patterns])
+            id_pattern_taught = n_stored_patterns+epoch//epochs_patterns_presented
+            pattern_taught = patterns[:, id_pattern_taught]
+
+            z = ETA * (np.outer(pattern_taught, pattern_taught) - wF)
+
+            netFisher.calculate_fisher_information_hebbian(  # TODO review
+                patterns[:, :id_pattern_taught])
             weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
 
             copied_curvature_tri = to_triangular(netFisher.curvature)
@@ -235,16 +238,14 @@ for trial in range(0, TRIALS):
             netFisher.set_weights(wF)
 
             # checking stability of patterns after eval_epochs iterations
-            Errors['FIH_O'][trial, epoch] = evaluate_stability(  # old patterns
-                netFisher, original_patterns.T[:n_stored_patterns])
             Errors['FIH_N'][trial, epoch] = evaluate_stability(  # new pattern
-                netFisher, [original_patterns.T[n_stored_patterns]])
+                netFisher, original_patterns.T[n_tot_patterns], average=False)
 
         # wFIH_final = netFisher.w
 
 
-filename = "../Complete_errors_stored{}_size{}_spars{}.npz".format(
-    n_stored_patterns, IMAGE_SIZE, SPARSITY)
+filename = "../Complete_errors_stored{}_size{}_spars{}_ALL.npz".format(
+    n_tot_patterns, IMAGE_SIZE, SPARSITY)
 np.savez(filename, **Errors)
 
 print('**Finished**')
