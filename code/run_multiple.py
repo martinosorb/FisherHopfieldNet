@@ -44,7 +44,7 @@ less_changed_weight_value = 0.00
 # learning rate of ETA * less_changed_weight_value
 epochs_patterns_presented = 30
 n_stored_patterns = 5
-n_new_patterns = 10
+n_new_patterns = 20
 n_tot_patterns = n_stored_patterns + n_new_patterns  # n of patterns created
 NTRAIN = epochs_patterns_presented * n_new_patterns  # number of epochs
 number_of_changed_values = 4750
@@ -53,8 +53,8 @@ number_of_changed_values = 4750
 eval_epochs = 10  # how many steps are run before dice coefficient computed
 
 # whether to run experiments with different learning rules
-RUN_FL = False  # similar to FLT, I prefer the local version
-RUN_FIH = False  # the experiment shows it's the same...
+RUN_FL = True  # similar to FLT, I prefer the local version
+RUN_FIH = True  # the experiment shows it's the same...
 RUN_FLT = True
 
 # Define variables
@@ -239,7 +239,7 @@ for trial in range(0, TRIALS):
 
             # checking stability of patterns after eval_epochs iterations
             Errors['FIH_N'][trial, epoch] = evaluate_stability(  # new pattern
-                netFisher, original_patterns.T[n_tot_patterns], average=False)
+                netFisher, original_patterns.T[:n_tot_patterns], average=False)
 
         # wFIH_final = netFisher.w
 

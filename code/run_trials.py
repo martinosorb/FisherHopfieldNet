@@ -32,12 +32,12 @@ def evaluate_stability(network, patterns):
     return overall_error/len(patterns)
 
 
-ETA = 0.001  # learning rate
+ETA = 0.0001  # learning rate
 NTRAIN = 2000  # number of epochs
-SPARSITY = 0.5  # number of zeros: SPARSITY = 0.1 means 10% ones and 90% zeros
+SPARSITY = 0.1  # number of zeros: SPARSITY = 0.1 means 10% ones and 90% zeros
 IMAGE_SIZE = 10  # the size of our pattern will be (IMAGE_SIZE x IMAGE_SIZE)
 eval_f = 1  # evaluation frequency (every eval_f-th iteration)
-TRIALS = 100  # number of trials over which the results will be averaged
+TRIALS = 200  # number of trials over which the results will be averaged
 less_changed_weight_value = 0.00
 # the learning rate of weights which are considered important have a
 # learning rate of ETA * less_changed_weight_value
@@ -243,7 +243,7 @@ for trial in range(0, TRIALS):
         # wFIH_final = netFisher.w
 
 
-filename = "../Complete_errors_stored{}_size{}_spars{}.npz".format(
+filename = "../Complete_errors_stored{}_size{}_spars{}_etasmall.npz".format(
     n_stored_patterns, IMAGE_SIZE, SPARSITY)
 np.savez(filename, **Errors)
 
