@@ -11,6 +11,8 @@ class hopfieldNet(object):
         self.N = n**2
         self.w = np.random.normal(size=[self.N, self.N])
         self.memorized_weights = np.random.normal(size=[self.N, self.N])
+        # self.w = np.zeros((self.N, self.N))
+        # self.memorized_weights = np.zeros((self.N, self.N))
         self.s = np.zeros(self.N, dtype=bool)
         self.eta = eta
         self.curvature = np.ones(shape = (self.N, self.N))
