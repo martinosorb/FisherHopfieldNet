@@ -35,20 +35,18 @@ def evaluate_stability(network, patterns, average=True):
 
 
 ETA = 0.001  # learning rate
-# ETA = 0.01  # learning rate
 SPARSITY = 0.1  # number of zeros: SPARSITY = 0.1 means 10% ones and 90% zeros
 IMAGE_SIZE = 10  # the size of our pattern will be (IMAGE_SIZE x IMAGE_SIZE)
 eval_f = 1  # evaluation frequency (every eval_f-th iteration)
-TRIALS = 5  # number of trials over which the results will be averaged
+TRIALS = 10  # number of trials over which the results will be averaged
 less_changed_weight_value = 0.00
 # the learning rate of weights which are considered important have a
 # learning rate of ETA * less_changed_weight_value
 # epochs_patterns_presented = 200
-epochs_patterns_presented = 10
+# epochs_patterns_presented = 10
+epochs_patterns_presented = 40
 n_stored_patterns = 0
-# n_new_patterns = 20
-# n_new_patterns = 40
-n_new_patterns = 50
+n_new_patterns = 10
 n_tot_patterns = n_stored_patterns + n_new_patterns  # n of patterns created
 NTRAIN = epochs_patterns_presented * n_new_patterns  # number of epochs
 number_of_changed_values = 4750
@@ -56,13 +54,13 @@ number_of_changed_values = 4750
 # (The factor of 2 is because of the symmetry of the weight matrix)
 eval_epochs = 10  # how many steps are run before dice coefficient computed
 
-fim_scale = 30#30
+fim_scale = 20 # # a in exp(-aF) to scale learning rates
 
 # whether to run experiments with different learning rules
-RUN_FL = True  # similar to FLT, I prefer the local version
+RUN_FL = True  # similar to FLT
 RUN_FI = True  # FI
-RUN_FIH = False  # the experiment shows it's the same...
-RUN_FLT = False
+RUN_FIH = True  # Hebbian FI
+RUN_FLT = True
 RUN_SCL = True
 
 # Define variables
@@ -131,7 +129,6 @@ for trial in range(0, TRIALS):
             pattern_taught = patterns[:, id_pattern_taught]
 
             z = ETA * (np.outer(pattern_taught, pattern_taught) - wF)
-            # netFisher.curvature = np.abs(w1)  # not an actual curvature
             netFisher.curvature = np.abs(wF)  # not an actual curvature
             weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
 
@@ -167,12 +164,10 @@ for trial in range(0, TRIALS):
             pattern_taught = patterns[:, id_pattern_taught]
 
             z = ETA * (np.outer(pattern_taught, pattern_taught) - wF)
-            # netFisher.curvature = np.abs(w1)
             netFisher.curvature = np.abs(wF)
             weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
             np.fill_diagonal(weight_perturbation, 1)
 
-            # weight_perturbation[np.abs(w1) < 0.008] = 1
             weight_perturbation[np.abs(wF) < 0.008] = 1
             np.fill_diagonal(weight_perturbation, 1)
             if (epoch % 100) == 0:
@@ -181,7 +176,6 @@ for trial in range(0, TRIALS):
 
             # training
             xyz = np.zeros(np.shape(w1))
-            # xyz[weight_perturbation == 1] = w1[weight_perturbation == 1]
             xyz[weight_perturbation == 1] = wF[weight_perturbation == 1]
             perturbation_vector = weight_perturbation * z
             wF = wF + perturbation_vector
@@ -211,14 +205,13 @@ for trial in range(0, TRIALS):
 
             copied_curvature_tri = to_triangular(netFisher.curvature)
             weight_perturbation_tri = to_triangular(weight_perturbation)
-            small_idx = np.argsort(copied_curvature_tri, axis=None)[::-1]
+            small_idx = np.argsort(copied_curvature_tri, axis=None)#[::-1]
             weight_perturbation_tri[small_idx[:number_of_changed_values]] = 1
             weight_perturbation = from_triangular(IMAGE_SIZE**2, weight_perturbation_tri, 1)
 
             # training
             xyz = np.zeros(np.shape(w1))
             xyz[weight_perturbation == 1] = wF[weight_perturbation == 1]
-            # xyz[weight_perturbation == 1] = w1[weight_perturbation == 1]
             perturbation_vector = weight_perturbation * z
             wF = wF + perturbation_vector
             netFisher.set_weights(wF)
@@ -238,9 +231,9 @@ for trial in range(0, TRIALS):
 
             z = ETA * (np.outer(pattern_taught, pattern_taught) - wF)
 
-            netFisher.calculate_fisher_information_hebbian(  # TODO review
-                patterns[:, :id_pattern_taught])
-            # weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
+            if id_pattern_taught>0:
+                netFisher.calculate_fisher_information_hebbian(  # TODO review
+                    patterns[:, :id_pattern_taught])
             weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(wF))
 
             copied_curvature_tri = to_triangular(netFisher.curvature)
@@ -251,7 +244,6 @@ for trial in range(0, TRIALS):
 
             # training
             xyz = np.zeros(np.shape(w1))
-            # xyz[weight_perturbation == 1] = w1[weight_perturbation == 1]
             xyz[weight_perturbation == 1] = wF[weight_perturbation == 1]
             perturbation_vector = weight_perturbation * z
             wF = wF + perturbation_vector
@@ -261,7 +253,6 @@ for trial in range(0, TRIALS):
             Errors['FIH_N'][trial, epoch] = evaluate_stability(  # new pattern
                 netFisher, original_patterns.T[:n_tot_patterns], average=False)
 
-        # wFIH_final = netFisher.w
 # ========= SCL ========= #
 # Now perturbing the weights proportional to its value
     if RUN_SCL:
