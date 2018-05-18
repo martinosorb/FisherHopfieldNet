@@ -46,7 +46,7 @@ less_changed_weight_value = 0.00
 # epochs_patterns_presented = 10
 epochs_patterns_presented = 40
 n_stored_patterns = 0
-n_new_patterns = 10
+n_new_patterns = 40
 n_tot_patterns = n_stored_patterns + n_new_patterns  # n of patterns created
 NTRAIN = epochs_patterns_presented * n_new_patterns  # number of epochs
 number_of_changed_values = 4750
@@ -129,7 +129,8 @@ for trial in range(0, TRIALS):
             pattern_taught = patterns[:, id_pattern_taught]
 
             z = ETA * (np.outer(pattern_taught, pattern_taught) - wF)
-            netFisher.curvature = np.abs(wF)  # not an actual curvature
+            # netFisher.curvature = np.abs(wF)  # not an actual curvature
+            netFisher.curvature = wF  # not an actual curvature
             weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
 
             copied_curvature_tri = to_triangular(netFisher.curvature)
@@ -164,7 +165,7 @@ for trial in range(0, TRIALS):
             pattern_taught = patterns[:, id_pattern_taught]
 
             z = ETA * (np.outer(pattern_taught, pattern_taught) - wF)
-            netFisher.curvature = np.abs(wF)
+            netFisher.curvature = wF
             weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
             np.fill_diagonal(weight_perturbation, 1)
 
@@ -262,7 +263,8 @@ for trial in range(0, TRIALS):
             pattern_taught = patterns[:, id_pattern_taught]
 
             z = ETA * (np.outer(pattern_taught, pattern_taught) - wF)
-            netFisher.curvature = np.abs(wF)  # not an actual curvature
+            # netFisher.curvature = np.abs(wF)  # not an actual curvature
+            netFisher.curvature = wF  # not an actual curvature
             weight_perturbation = np.exp(-netFisher.curvature*fim_scale)
 
             if (epoch % 100) == 0:
