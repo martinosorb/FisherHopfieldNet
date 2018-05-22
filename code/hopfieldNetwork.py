@@ -37,7 +37,8 @@ class hopfieldNet(object):
     def step(self, k=1):
         #print('sparsity:  ', self.sparsity)
         for _ in range(k):
-            probs = 0.5 + 0.5 * np.sign((self.w @ self.s) - self.sparsity)
+            #probs = 0.5 + 0.5 * np.sign((self.w @ self.s) - self.sparsity)
+            probs = 0.5 + 0.5 * np.sign((self.w @ self.s) - 1)
             #probs = 0.5 + 0.5 * np.sign(self.w @ self.s)
             self.present_pattern(probs)
 
@@ -126,11 +127,9 @@ class hopfieldNet(object):
 
 
     def calculate_fisher_information_hebbian(self, patterns):
-        #patterns = patterns-self.sparsity
         sparsity = 0.1
         patterns = patterns + sparsity
         [length_of_pattern, numPatterns] = np.shape(patterns)
-        #print('Number of patterns fisher info: ',numPatterns)
         self.variance = np.zeros(shape = (self.N, self.N))
         w1 = np.zeros(shape = (self.N, self.N))
         w2 = np.zeros(shape = (self.N, self.N))
@@ -145,7 +144,7 @@ class hopfieldNet(object):
         w2 /= numPatterns
         w2 = w2 * w2
         self.curvature = w1 - w2
-        self.curvature = self.curvature / np.mean(self.curvature)
+        #self.curvature = self.curvature / np.mean(self.curvature)
         self.present_pattern(patterns[:,0])
 
     def calculate_expectation(self,patterns):
