@@ -59,6 +59,12 @@ class hopfieldNet(object):
         energy = energy / self.energy_factor
         return energy
 
+    def calculate_pattern_energies(self, patterns):
+        # Introduced by martino for faster computation
+        energy = -np.dot(np.dot(np.transpose(patterns),
+                         self.w/np.mean(np.abs(self.w))), patterns)
+        return np.diagonal(energy) / self.energy_factor
+
     def calculate_curvature(self):
         curvature_matrix = np.multiply(np.outer(self.s, self.s), np.outer(self.s, self.s))
         curvature_value = -np.dot(np.dot(np.transpose(self.s), self.w), self.s)
@@ -101,26 +107,44 @@ class hopfieldNet(object):
     #     self.present_pattern(patterns[:,0])
 
     def calculate_fisher_information(self, patterns):
-        #patterns = patterns-self.sparsity
+        # energies = self.calculate_pattern_energies(patterns)
+        # expenergies = np.exp(-energies)
+        # Z = expenergies.sum()
+
+        # Assuming EQUAL probability
+        val_matrix = np.einsum('ij,kj->jik', patterns, patterns)
+        var = np.var(val_matrix, axis=0)
+        self.curvature = var/np.mean(var)
+
+    def calculate_complete_fisher_information(self, patterns):
         [length_of_pattern, numPatterns] = np.shape(patterns)
-        #print('Number of patterns fisher info: ',numPatterns)
-        self.calculate_expectation(patterns)
-        Z = self.calculate_Z(patterns)
-        self.variance = np.zeros(shape = (self.N, self.N))
-        smallest_energy = 1e10
-        for pattern in range(numPatterns):
-            self.present_pattern(patterns[:,pattern])
-            energy = self.calculate_energy()
-            if energy < smallest_energy:
-                smallest_energy = energy
-            exp_energy = np.exp(-energy)
-            p = 1/numPatterns
-            #print('pattern:  ', pattern, 'has a p = ', p)
-            value_matrix = np.outer(self.s, self.s)
-            self.variance += p * (value_matrix - self.expectation)**2
-        self.curvature = self.variance
-        self.curvature = self.curvature / np.mean(self.curvature)
-        self.present_pattern(patterns[:,0])
+        val_matrix = np.einsum('ij,kj->jik', patterns, patterns)
+        val_some = np.asarray([val[np.triu_indices(
+            length_of_pattern, 1)] for val in val_matrix])
+        return(np.cov(val_some, rowvar=0))
+
+
+    # def calculate_fisher_information(self, patterns):
+    #     #patterns = patterns-self.sparsity
+    #     [length_of_pattern, numPatterns] = np.shape(patterns)
+    #     #print('Number of patterns fisher info: ',numPatterns)
+    #     self.calculate_expectation(patterns)
+    #     Z = self.calculate_Z(patterns)
+    #     self.variance = np.zeros(shape = (self.N, self.N))
+    #     smallest_energy = 1e10
+    #     for pattern in range(numPatterns):
+    #         self.present_pattern(patterns[:,pattern])
+    #         energy = self.calculate_energy()
+    #         if energy < smallest_energy:
+    #             smallest_energy = energy
+    #         exp_energy = np.exp(-energy)
+    #         p = 1/numPatterns
+    #         #print('pattern:  ', pattern, 'has a p = ', p)
+    #         value_matrix = np.outer(self.s, self.s)
+    #         self.variance += p * (value_matrix - self.expectation)**2
+    #     self.curvature = self.variance
+    #     self.curvature = self.curvature / np.mean(self.curvature)
+    #     self.present_pattern(patterns[:,0])
 
     def calculate_fisher_information_hebbian(self, patterns):
         #patterns = patterns-self.sparsity
