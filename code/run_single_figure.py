@@ -23,7 +23,7 @@ def dice_coefficient(p1, p2):
     return p/n
 
 
-def evaluate_stability(network, patterns, average=True):
+def evaluate_stability(network, patterns, average=True, bias=1):
     error = np.empty(len(patterns))
     for i, p in enumerate(patterns):
         network.present_pattern(p)
@@ -36,34 +36,39 @@ def evaluate_stability(network, patterns, average=True):
 
 
 ETA = 0.001  # learning rate
-# ETA = 0.01  # learning rate
+ETA = 0.01  # learning rate
 # ETA = 0.1  # learning rate
 SPARSITY = 0.1  # number of zeros: SPARSITY = 0.1 means 10% ones and 90% zeros
 IMAGE_SIZE = 10  # the size of our pattern will be (IMAGE_SIZE x IMAGE_SIZE)
 eval_f = 1  # evaluation frequency (every eval_f-th iteration)
-TRIALS = 10  # number of trials over which the results will be averaged
-# TRIALS = 2  # number of trials over which the results will be averaged
+TRIALS = 20  # number of trials over which the results will be averaged
+TRIALS = 20  # number of trials over which the results will be averaged
 less_changed_weight_value = 0.00
 # the learning rate of weights which are considered important have a
 # learning rate of ETA * less_changed_weight_value
-epochs_patterns_presented = 2000
-# epochs_patterns_presented = 1000
+epochs_patterns_presented = 5000
 n_stored_patterns = 5
+n_stored_patterns = 20
 n_new_patterns = 1
 n_tot_patterns = n_stored_patterns + n_new_patterns  # n of patterns created
 NTRAIN = epochs_patterns_presented * n_new_patterns  # number of epochs
 number_of_changed_values = 4700
-# number_of_changed_values = 4950-2000
+number_of_changed_values = 4500
+number_of_changed_values = IMAGE_SIZE**2*(IMAGE_SIZE**2-1)//2//100*95
+print(IMAGE_SIZE**2*(IMAGE_SIZE**2-1)//2,number_of_changed_values)
 print('Static weights: '+str(IMAGE_SIZE**2*(IMAGE_SIZE**2-1)/2-number_of_changed_values))
 number_of_changed_values_diag_0 = number_of_changed_values + IMAGE_SIZE**2/2
 # the number of weigths that are changed is 2*number_of_changed_values
 # (The factor of 2 is because of the symmetry of the weight matrix)
 eval_epochs = 10  # how many steps are run before dice coefficient computed
 
-fim_scale = 30 # # a in exp(-aF) to scale learning rates
+fim_scale = 35 # # a in exp(-aF) to scale learning rates
+fim_scale = 90 # eta = 0.1
+fim_scale = 45 # eta = 0.01
+fim_scale = 220 # eta = 0.01 20 pat
 
-bias = 0.25
-
+bias = 1 # 5 pat
+bias = 0.25 # 20 pat
 
 # whether to run experiments with different learning rules
 RUN_FL = True  # uses weight value, similar to FLT
@@ -103,7 +108,6 @@ for trial in range(0, TRIALS):
     original_patterns = copy.deepcopy(patterns)
     patterns = patterns - SPARSITY
 
-
     # learning patterns
     p = np.random.random((IMAGE_SIZE**2, IMAGE_SIZE**2))
     p = np.zeros(shape=(IMAGE_SIZE**2, IMAGE_SIZE**2))
@@ -140,9 +144,7 @@ for trial in range(0, TRIALS):
 
         # checking stability of patterns after eval_epochs iterations
         Errors['trad_80_N'][trial, epoch] = evaluate_stability(  # old patterns
-            netFisher, original_patterns.T[:n_tot_patterns], average=False)
-
-    wH_final = netFisher.w
+            netFisher, original_patterns.T[:n_tot_patterns], average=False, bias=bias)
 
 # ========= FL ========= #
 # Now perturbing the weights using the value of the weight (quantile)
@@ -175,9 +177,7 @@ for trial in range(0, TRIALS):
 
             # checking stability of patterns after eval_epochs iterations
             Errors['FL_N'][trial, epoch] = evaluate_stability(  # old patterns
-                netFisher, original_patterns.T[:n_tot_patterns], average=False)
-
-        wFL_final = netFisher.w
+                netFisher, original_patterns.T[:n_tot_patterns], average=False, bias=bias)
 
 # ======== FLT ========= #
 # Now perturbing the weights using the value of the weight (threshold)
@@ -192,7 +192,9 @@ for trial in range(0, TRIALS):
             weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
             np.fill_diagonal(weight_perturbation, 1)
 
-            weight_perturbation[np.abs(wF) < 0.112] = 1
+            # weight_perturbation[np.abs(wF) < 0.112] = 1
+            # weight_perturbation[np.abs(wF) < 0.09] = 1 # 5 pat
+            weight_perturbation[np.abs(wF) < 0.001] = 1
             np.fill_diagonal(weight_perturbation, 1)
 
             # training
@@ -202,9 +204,7 @@ for trial in range(0, TRIALS):
 
             # checking stability of patterns after eval_epochs iterations
             Errors['FLT_N'][trial, epoch] = evaluate_stability(  # old patterns
-                netFisher, original_patterns.T[:n_tot_patterns], average=False)
-
-        # wFLT_final = netFisher.w
+                netFisher, original_patterns.T[:n_tot_patterns], average=False, bias=bias)
 
 # ======== FI ======== #
 # Weights perturbed using Fisher Information
@@ -220,28 +220,25 @@ for trial in range(0, TRIALS):
             z = ETA * (np.outer(pattern_taught, pattern_taught) - wF)
 
             if id_pattern_taught>0:
-                netFisher.calculate_fisher_information(  # TODO review
-                    patterns[:, :id_pattern_taught]+SPARSITY)
-            weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
+                netFisher.calculate_fisher_information(patterns[:, :id_pattern_taught]+SPARSITY)
+                weight_perturbation = less_changed_weight_value*np.ones(shape=np.shape(w1))
+                # print(np.min(netFisher.curvature),np.mean(netFisher.curvature),np.max(netFisher.curvature))
+                copied_curvature_tri = to_triangular(netFisher.curvature)
+                weight_perturbation_tri = to_triangular(weight_perturbation)
+                small_idx = np.argsort(copied_curvature_tri, axis=None)
+                #weight_perturbation_tri[small_idx[:int(number_of_changed_values_diag_0)]] = 1
+                weight_perturbation_tri[small_idx[:int(number_of_changed_values)]] = 1
+                weight_perturbation = from_triangular(IMAGE_SIZE**2, weight_perturbation_tri, 1)
+            else:
+                weight_perturbation = np.ones(shape=np.shape(w1))
 
-            # print(np.min(netFisher.curvature),np.mean(netFisher.curvature),np.max(netFisher.curvature))
-            copied_curvature_tri = to_triangular(netFisher.curvature)
-            weight_perturbation_tri = to_triangular(weight_perturbation)
-            small_idx = np.argsort(copied_curvature_tri, axis=None)
-            #weight_perturbation_tri[small_idx[:int(number_of_changed_values_diag_0)]] = 1
-            weight_perturbation_tri[small_idx[:int(number_of_changed_values)]] = 1
-            weight_perturbation = from_triangular(IMAGE_SIZE**2, weight_perturbation_tri, 1)
-
-            # print('fi:',id_pattern_taught,small_idx[-10:])
-
-            #np.fill_diagonal(weight_perturbation, 0)
             perturbation_vector = weight_perturbation * z
             wF = wF + perturbation_vector
             netFisher.set_weights(wF)
 
             # checking stability of patterns after eval_epochs iterations
             Errors['FI_N'][trial, epoch] = evaluate_stability(  # old patterns
-                netFisher, original_patterns.T[:n_tot_patterns], average=False)
+                netFisher, original_patterns.T[:n_tot_patterns], average=False, bias=bias)
 
 # ======== FIH ========= #
 # Now perturbing the weights using Hebbian way for Fisher information
@@ -294,7 +291,7 @@ for trial in range(0, TRIALS):
 
             # checking stability of patterns after eval_epochs iterations
             Errors['FIH_N'][trial, epoch] = evaluate_stability(  # new pattern
-                netFisher, original_patterns.T[:n_tot_patterns], average=False)
+                netFisher, original_patterns.T[:n_tot_patterns], average=False, bias=bias)
 
 # ========= SCL ========= #
 # Now perturbing the weights proportional to its value
@@ -305,9 +302,9 @@ for trial in range(0, TRIALS):
             pattern_taught = patterns[:, id_pattern_taught]
 
             z = ETA * (np.outer(pattern_taught, pattern_taught) - wF)
-            #netFisher.curvature = np.abs(wF)  # not an actual curvature
+            netFisher.curvature = np.abs(wF)  # not an actual curvature
             # netFisher.curvature = wF  # not an actual curvature
-            netFisher.curvature = np.abs(wF-4*SPARSITY*wF)  # not an actual curvature
+            # netFisher.curvature = np.abs(wF-4*SPARSITY*wF)  # not an actual curvature
             weight_perturbation = np.exp(-netFisher.curvature*fim_scale)
 
             # if (epoch % 100) == 0:
@@ -322,7 +319,7 @@ for trial in range(0, TRIALS):
 
             # checking stability of patterns after eval_epochs iterations
             Errors['FL_SCL'][trial, epoch] = evaluate_stability(  # old patterns
-                netFisher, original_patterns.T[:n_tot_patterns], average=False)
+                netFisher, original_patterns.T[:n_tot_patterns], average=False, bias=bias)
 
 # ========= SCLT ========= #
 # Now perturbing the weights proportional to its value + threshold
@@ -333,9 +330,9 @@ for trial in range(0, TRIALS):
             pattern_taught = patterns[:, id_pattern_taught]
 
             z = ETA * (np.outer(pattern_taught, pattern_taught) - wF)
-            #netFisher.curvature = np.abs(wF)  # not an actual curvature
+            netFisher.curvature = np.abs(wF)  # not an actual curvature
             # netFisher.curvature = wF  # not an actual curvature
-            netFisher.curvature = np.abs(wF-4*SPARSITY*wF)  # not an actual curvature
+            # netFisher.curvature = np.abs(wF-4*SPARSITY*wF)  # not an actual curvature
             weight_perturbation = np.exp(-netFisher.curvature*fim_scale) * (np.abs(z)>ETA/5.)
 
             # if (epoch % 100) == 0:
@@ -350,7 +347,7 @@ for trial in range(0, TRIALS):
 
             # checking stability of patterns after eval_epochs iterations
             Errors['FL_SCLT'][trial, epoch] = evaluate_stability(  # old patterns
-                netFisher, original_patterns.T[:n_tot_patterns], average=False)
+                netFisher, original_patterns.T[:n_tot_patterns], average=False, bias=bias)
 
 filename = "../Single_errors_stored{}_size{}_spars{}_epochs{}_eta{}_ALL.npz".format(
     n_tot_patterns, IMAGE_SIZE, SPARSITY, epochs_patterns_presented, ETA)

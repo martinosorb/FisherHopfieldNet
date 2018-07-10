@@ -89,10 +89,18 @@ else:
 netFisher.set_weights(w1)
 
 ##########################################################
+# Learning rules
+##########################################################
+expo = lambda wF, c, z, t: np.exp(-c*np.abs(wF))
+expo_thres = lambda wF, c, z, t: np.exp(-c*np.abs(wF))*(z>t)
 bayes = lambda wF, c, z, t: c/(c+np.abs(wF))
+bayes_pow = lambda wF, c, z, t: c**2/(c+np.abs(wF))**2
+bayes_sq = lambda wF, c, z, t: c/(c+np.abs(wF)*(1-np.abs(wF)))
 bayes_thres = lambda wF, c, z, t: c/(c+np.abs(wF))*(z>t)
 w_thres  = lambda wF, c, z, t: wF<c
 hopfield  = lambda wF, c, z, t: np.ones(wF.shape)
+##########################################################
+##########################################################
 
 def compute_dice(ETA, c, t, func):#, t = 0.0):
     wF = np.copy(w1)
@@ -138,8 +146,12 @@ from scipy import optimize
 experiments = {
     'Hopfield': (hopfield, (0.1)),
     'Weight thresh.': (w_thres, (0.1, 0.1)),
-    'Bayes update': (bayes, (0.6, 0.007)),
-    'Bayes with thres.': (bayes_thres, (0.1, 0.1, 0.1))
+    'Bayes approx.': (bayes, (0.6, 0.007)),
+    'Bayes squared': (bayes_pow, (0.6, 0.1)),
+    'Bayes 2nd oder': (bayes_sq, (0.6, 0.1)),
+    'Exponential': (expo, (0.1, 30)),
+    'Bayes with thres.': (bayes_thres, (0.1, 0.1, 0.1)),
+    'Exp. with thres.': (expo_thres, (0.1, 30, 0.1))
 }
 
 data = {}
@@ -147,7 +159,7 @@ data = {}
 for e in experiments:
     print(e)
 
-    n_new_patterns = 40
+    n_new_patterns = 60
     n_tot_patterns = n_stored_patterns + n_new_patterns
     NTRAIN = epochs_patterns_presented * n_new_patterns
     patterns = solver.create_patterns(SPARSITY, IMAGE_SIZE, n_tot_patterns)
@@ -161,7 +173,7 @@ for e in experiments:
     storer = []
     storer.append(par)
 
-    n_new_patterns = 60
+    n_new_patterns = 90
     n_tot_patterns = n_stored_patterns + n_new_patterns
     NTRAIN = epochs_patterns_presented * n_new_patterns
 
@@ -173,7 +185,7 @@ for e in experiments:
         ETA, c, t = par[0], 0, 0
 
     dice = []
-    for i in range(10):
+    for i in range(20):
 
         patterns = solver.create_patterns(SPARSITY, IMAGE_SIZE, n_tot_patterns)
         original_patterns = copy.deepcopy(patterns)
@@ -187,4 +199,4 @@ for e in experiments:
     storer.append(dice)
     data[e] = storer
 
-np.savez('../optimised_models_40.npz', **data)
+np.savez('../optimised_models_60.npz', **data)
